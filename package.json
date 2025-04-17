@@ -7,6 +7,6 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "mineflayer": "^4.0.0"  // Versão estável do mineflayer
+    "mineflayer": "^4.0.0"
   }
 }
