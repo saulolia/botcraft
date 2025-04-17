@@ -31,7 +31,7 @@ const bot = mineflayer.createBot({
   host: 'mapatest97.aternos.me', // exemplo: 'seuservidor.aternos.me'
   port: 18180,
   username: 'JuninGameplay',
-  version: 1.21.4
+  version: '1.21.4'
 })
 
 bot.on('spawn', () => {
