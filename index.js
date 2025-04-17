@@ -14,6 +14,7 @@ let onlinePlayers = 0
 let botStartTime = null
 let eventLogs = []
 let messagesSent = 0
+let randomMovementEnabled = true  // Controle de movimento aleatório
 
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
@@ -58,6 +59,8 @@ bot.on('spawn', () => {
   const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look']
 
   function doRandomAction() {
+    if (!randomMovementEnabled) return  // Não faz nada se o movimento aleatório estiver desativado
+
     const action = actions[Math.floor(Math.random() * actions.length)]
 
     if (action === 'look') {
@@ -133,6 +136,14 @@ io.on('connection', socket => {
       addLog(msg)
     }
   })
+
+  // Alternar o movimento aleatório
+  socket.on('toggleRandomMovement', () => {
+    randomMovementEnabled = !randomMovementEnabled
+    const status = randomMovementEnabled ? "ativado" : "desativado"
+    console.log(`Movimento aleatório ${status}`)
+    socket.emit('randomMovementStatus', status)
+  })
 })
 
 app.get('/', (req, res) => {
@@ -200,6 +211,9 @@ app.get('/', (req, res) => {
         <button onclick="reconnectBot()">Reconectar Bot</button>
         <button onclick="shutdownBot()">Desligar Bot</button>
 
+        <h2>Controle de Movimento Aleatório</h2>
+        <button id="randomMovementButton">Ativar Movimento Aleatório</button>
+
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
@@ -220,6 +234,11 @@ app.get('/', (req, res) => {
             if (logs.children.length > 10) logs.removeChild(logs.lastChild)
           })
 
+          socket.on('randomMovementStatus', (status) => {
+            const button = document.querySelector('#randomMovementButton')
+            button.innerText = status === 'ativado' ? 'Desativar Movimento Aleatório' : 'Ativar Movimento Aleatório'
+          })
+
           function sendMsg() {
             const input = document.querySelector('#msgInput')
             const msg = input.value.trim()
@@ -236,6 +255,10 @@ app.get('/', (req, res) => {
           function shutdownBot() {
             socket.emit('shutdown')
           }
+
+          document.querySelector('#randomMovementButton').addEventListener('click', () => {
+            socket.emit('toggleRandomMovement')
+          })
         </script>
       </body>
     </html>
