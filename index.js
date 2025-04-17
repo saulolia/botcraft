@@ -180,11 +180,23 @@ app.get('/', (req, res) => {
             font-family: monospace;
             margin-bottom: 5px;
           }
+          .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 10px;
+          }
+          .status-online { background-color: green; }
+          .status-offline { background-color: red; }
+          .status-error { background-color: orange; }
         </style>
       </head>
       <body>
         <h1>Status do Bot Minecraft</h1>
-        <p>Status: <strong id="status">${botStatus}</strong></p>
+        <p>Status: <strong id="status">${botStatus}</strong>
+          <span id="status-indicator" class="status-indicator ${botStatus === 'online' ? 'status-online' : botStatus === 'desconectado' ? 'status-offline' : 'status-error'}"></span>
+        </p>
         <p>Jogadores online: <strong id="players">${onlinePlayers}</strong></p>
         <p>Tempo online: <strong id="uptime">${getUptime()}</strong></p>
         <p>Mensagens enviadas: <strong id="messagesSent">${messagesSent}</strong></p>
@@ -210,6 +222,7 @@ app.get('/', (req, res) => {
             document.querySelector('#uptime').innerText = data.uptime
             document.querySelector('#messagesSent').innerText = data.messagesSent
             document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
+            document.querySelector('#status-indicator').className = 'status-indicator ' + (data.status === 'online' ? 'status-online' : data.status === 'desconectado' ? 'status-offline' : 'status-error')
           })
 
           socket.on('chatMessage', (msg) => {
