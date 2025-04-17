@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Status do Bot Minecraft</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      padding: 20px;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .status, .commands {
+      background: #fff;
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 10px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 Status do Bot Minecraft</h1>
+
+  <div class="status">
+    <h2>Status: <%= status.status %></h2>
+    <p>⏱️ Uptime: <%= botUptime %> segundos</p>
+    <p>👥 Jogadores online: <%= playersOnline %></p>
+  </div>
+
+  <div class="commands">
+    <h2>📜 Últimos Comandos</h2>
+    <ul>
+      <% commands.forEach(cmd => { %>
+        <li><strong><%= cmd.username %></strong>: <%= cmd.message %> (<%= new Date(cmd.timestamp).toLocaleString() %>)</li>
+      <% }) %>
+    </ul>
+  </div>
+</body>
+</html>
