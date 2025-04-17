@@ -144,6 +144,49 @@ io.on('connection', socket => {
     console.log(`Movimento aleatório ${status}`)
     socket.emit('randomMovementStatus', status)
   })
+
+  // Movimentos específicos do bot
+  socket.on('moveForward', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('forward', true)
+      setTimeout(() => bot.setControlState('forward', false), 500)
+    }
+  })
+
+  socket.on('moveBack', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('back', true)
+      setTimeout(() => bot.setControlState('back', false), 500)
+    }
+  })
+
+  socket.on('turnLeft', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('left', true)
+      setTimeout(() => bot.setControlState('left', false), 500)
+    }
+  })
+
+  socket.on('turnRight', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('right', true)
+      setTimeout(() => bot.setControlState('right', false), 500)
+    }
+  })
+
+  socket.on('jump', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('jump', true)
+      setTimeout(() => bot.setControlState('jump', false), 500)
+    }
+  })
+
+  socket.on('sneak', () => {
+    if (botStatus === 'online') {
+      bot.setControlState('sneak', true)
+      setTimeout(() => bot.setControlState('sneak', false), 500)
+    }
+  })
 })
 
 app.get('/', (req, res) => {
@@ -214,6 +257,14 @@ app.get('/', (req, res) => {
         <h2>Controle de Movimento Aleatório</h2>
         <button id="randomMovementButton">Ativar Movimento Aleatório</button>
 
+        <h2>Movimentos do Bot</h2>
+        <button onclick="moveForward()">Mover para frente</button>
+        <button onclick="moveBack()">Mover para trás</button>
+        <button onclick="turnLeft()">Virar para a esquerda</button>
+        <button onclick="turnRight()">Virar para a direita</button>
+        <button onclick="jump()">Pular</button>
+        <button onclick="sneak()">Agachar</button>
+
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
@@ -259,6 +310,30 @@ app.get('/', (req, res) => {
           document.querySelector('#randomMovementButton').addEventListener('click', () => {
             socket.emit('toggleRandomMovement')
           })
+
+          function moveForward() {
+            socket.emit('moveForward')
+          }
+
+          function moveBack() {
+            socket.emit('moveBack')
+          }
+
+          function turnLeft() {
+            socket.emit('turnLeft')
+          }
+
+          function turnRight() {
+            socket.emit('turnRight')
+          }
+
+          function jump() {
+            socket.emit('jump')
+          }
+
+          function sneak() {
+            socket.emit('sneak')
+          }
         </script>
       </body>
     </html>
