@@ -1,23 +1,5 @@
 const mineflayer = require('mineflayer')
-const express = require('express')
 
-const app = express()
-const port = process.env.PORT || 3000
-
-let botStatus = 'desconectado'
-let onlinePlayers = 0
-let botStartTime = null
-
-function getUptime() {
-  if (!botStartTime) return 'Desconectado'
-  const diff = Math.floor((Date.now() - botStartTime) / 1000)
-  const h = Math.floor(diff / 3600)
-  const m = Math.floor((diff % 3600) / 60)
-  const s = diff % 60
-  return `${h}h ${m}m ${s}s`
-}
-
-// Criação do bot
 const bot = mineflayer.createBot({
   host: 'mapatest97.aternos.me', // IP do seu servidor
   port: 18180,                   // Porta do servidor
@@ -25,62 +7,42 @@ const bot = mineflayer.createBot({
   version: '1.21.4'              // Versão do Minecraft
 })
 
+const areaLimit = 50; // Limite de 50 blocos para um quadrado de 100x100
+
+function randomMovement() {
+  const x = Math.floor(Math.random() * areaLimit * 2) - areaLimit;
+  const z = Math.floor(Math.random() * areaLimit * 2) - areaLimit;
+  const y = bot.entity.position.y;
+
+  bot.pathfinder.setGoal(new mineflayer.pathfinder.goals.GoalNear(x, y, z, 1))
+}
+
 bot.on('spawn', () => {
   console.log('Bot entrou no servidor!')
-  botStatus = 'online'
-  botStartTime = Date.now()
+
+  // Configura o comportamento de movimento do bot
+  setInterval(() => {
+    randomMovement()
+  }, 5000) // O bot se move a cada 5 segundos
 
   setInterval(() => {
     bot.setControlState('jump', true)
     setTimeout(() => bot.setControlState('jump', false), 200)
     bot.look(Math.random() * 360, Math.random() * 360, true)
+  }, 10000) // O bot gira e pula para parecer mais um jogador
 
-    const players = Object.keys(bot.players)
-    onlinePlayers = players.length
-  }, 10000)
+  bot.on('physicTick', () => {
+    bot.setControlState('forward', true)
+    setTimeout(() => bot.setControlState('forward', false), 2000) // O bot anda para frente por 2 segundos
+  })
 })
 
 bot.on('end', () => {
   console.log('Bot caiu, tentando reconectar...')
-  botStatus = 'desconectado'
-  onlinePlayers = 0
-  botStartTime = null
   setTimeout(() => bot.connect(), 5000)
 })
 
 bot.on('error', err => {
   console.log('Erro:', err)
-  botStatus = 'erro'
 })
 
-// Site simples com informações do bot
-app.get('/', (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>Status do Bot</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            background-color: #111;
-            color: #eee;
-            text-align: center;
-            padding-top: 50px;
-          }
-          h1 { font-size: 2em; margin-bottom: 20px; }
-          p { font-size: 1.2em; margin: 10px 0; }
-        </style>
-      </head>
-      <body>
-        <h1>Bot Mineflayer</h1>
-        <p>Status: <strong>${botStatus}</strong></p>
-        <p>Jogadores online: <strong>${onlinePlayers}</strong></p>
-        <p>Tempo online: <strong>${getUptime()}</strong></p>
-      </body>
-    </html>
-  `)
-})
-
-app.listen(port, () => {
-  console.log(`Servidor web rodando na porta ${port}`)
-})
