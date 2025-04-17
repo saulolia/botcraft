@@ -13,6 +13,7 @@ let botStatus = 'desconectado'
 let onlinePlayers = 0
 let botStartTime = null
 let eventLogs = []
+let messagesSent = 0
 
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
@@ -35,7 +36,8 @@ function getStatusData() {
     status: botStatus,
     players: onlinePlayers,
     uptime: getUptime(),
-    logs: eventLogs
+    logs: eventLogs,
+    messagesSent: messagesSent
   }
 }
 
@@ -107,7 +109,28 @@ io.on('connection', socket => {
   socket.on('sendMessage', msg => {
     if (botStatus === 'online') {
       bot.chat(msg)
+      messagesSent += 1
       addLog(`Você: ${msg}`)
+    }
+  })
+
+  // Reconectar o bot
+  socket.on('reconnect', () => {
+    if (botStatus === 'desconectado') {
+      bot.connect()
+      const msg = 'Reconectando o bot...'
+      console.log(msg)
+      addLog(msg)
+    }
+  })
+
+  // Desligar o bot
+  socket.on('shutdown', () => {
+    if (botStatus === 'online') {
+      bot.quit('Bot desligado via painel')
+      const msg = 'Bot desligado.'
+      console.log(msg)
+      addLog(msg)
     }
   })
 })
@@ -141,6 +164,7 @@ app.get('/', (req, res) => {
             color: white;
             border: none;
             cursor: pointer;
+            margin: 5px;
           }
           ul {
             text-align: left;
@@ -163,6 +187,7 @@ app.get('/', (req, res) => {
         <p>Status: <strong id="status">${botStatus}</strong></p>
         <p>Jogadores online: <strong id="players">${onlinePlayers}</strong></p>
         <p>Tempo online: <strong id="uptime">${getUptime()}</strong></p>
+        <p>Mensagens enviadas: <strong id="messagesSent">${messagesSent}</strong></p>
 
         <h2>Logs Recentes</h2>
         <ul id="logs">${logsHtml}</ul>
@@ -170,6 +195,10 @@ app.get('/', (req, res) => {
         <h2>Enviar mensagem pro chat do Minecraft</h2>
         <input id="msgInput" placeholder="Digite sua mensagem..." />
         <button onclick="sendMsg()">Enviar</button>
+
+        <h2>Controles do Bot</h2>
+        <button onclick="reconnectBot()">Reconectar Bot</button>
+        <button onclick="shutdownBot()">Desligar Bot</button>
 
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
@@ -179,6 +208,7 @@ app.get('/', (req, res) => {
             document.querySelector('#status').innerText = data.status
             document.querySelector('#players').innerText = data.players
             document.querySelector('#uptime').innerText = data.uptime
+            document.querySelector('#messagesSent').innerText = data.messagesSent
             document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
           })
 
@@ -197,6 +227,14 @@ app.get('/', (req, res) => {
               socket.emit('sendMessage', msg)
               input.value = ''
             }
+          }
+
+          function reconnectBot() {
+            socket.emit('reconnect')
+          }
+
+          function shutdownBot() {
+            socket.emit('shutdown')
           }
         </script>
       </body>
