@@ -1,37 +1,34 @@
-const mineflayer = require('mineflayer');
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const { createScreen } = require('mineflayer-screen'); // Para capturar a tela
+const mineflayer = require('mineflayer')
+const express = require('express')
+const http = require('http')
+const { Server } = require('socket.io')
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const app = express()
+const server = http.createServer(app)
+const io = new Server(server)
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3000
 
-let botStatus = 'desconectado';
-let onlinePlayers = 0;
-let botStartTime = null;
-let eventLogs = [];
-let messagesSent = 0;
-let randomMovementEnabled = true; // Controle de movimento aleatório
-let screenCaptureInterval; // Para controlar o intervalo de captura de tela
+let botStatus = 'desconectado'
+let onlinePlayers = 0
+let botStartTime = null
+let eventLogs = []
+let messagesSent = 0
 
 function getUptime() {
-  if (!botStartTime) return 'Desconectado';
-  const diff = Math.floor((Date.now() - botStartTime) / 1000);
-  const h = Math.floor(diff / 3600);
-  const m = Math.floor((diff % 3600) / 60);
-  const s = diff % 60;
-  return `${h}h ${m}m ${s}s`;
+  if (!botStartTime) return 'Desconectado'
+  const diff = Math.floor((Date.now() - botStartTime) / 1000)
+  const h = Math.floor(diff / 3600)
+  const m = Math.floor((diff % 3600) / 60)
+  const s = diff % 60
+  return `${h}h ${m}m ${s}s`
 }
 
 function addLog(message) {
-  const timestamp = new Date().toLocaleTimeString();
-  eventLogs.unshift(`[${timestamp}] ${message}`);
-  if (eventLogs.length > 10) eventLogs.pop();
-  io.emit('statusUpdate', getStatusData());
+  const timestamp = new Date().toLocaleTimeString()
+  eventLogs.unshift(`[${timestamp}] ${message}`)
+  if (eventLogs.length > 10) eventLogs.pop()
+  io.emit('statusUpdate', getStatusData())
 }
 
 function getStatusData() {
@@ -41,7 +38,7 @@ function getStatusData() {
     uptime: getUptime(),
     logs: eventLogs,
     messagesSent: messagesSent
-  };
+  }
 }
 
 const bot = mineflayer.createBot({
@@ -49,119 +46,97 @@ const bot = mineflayer.createBot({
   port: 18180,
   username: 'JuninGameplay',
   version: '1.21.4'
-});
-
-// Inicializando o sistema de captura de tela
-const screen = createScreen(bot);
+})
 
 bot.on('spawn', () => {
-  const msg = 'Bot entrou no servidor!';
-  console.log(msg);
-  addLog(msg);
-  botStatus = 'online';
-  botStartTime = Date.now();
+  const msg = 'Bot entrou no servidor!'
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'online'
+  botStartTime = Date.now()
 
-  const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look'];
+  const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look']
 
   function doRandomAction() {
-    if (!randomMovementEnabled) return; // Não faz nada se o movimento aleatório estiver desativado
-
-    const action = actions[Math.floor(Math.random() * actions.length)];
+    const action = actions[Math.floor(Math.random() * actions.length)]
 
     if (action === 'look') {
-      const yaw = Math.random() * 2 * Math.PI;
-      const pitch = (Math.random() - 0.5) * Math.PI;
-      bot.look(yaw, pitch, true);
+      const yaw = Math.random() * 2 * Math.PI
+      const pitch = (Math.random() - 0.5) * Math.PI
+      bot.look(yaw, pitch, true)
     } else {
-      bot.setControlState(action, true);
-      setTimeout(() => bot.setControlState(action, false), 500);
+      bot.setControlState(action, true)
+      setTimeout(() => bot.setControlState(action, false), 500)
     }
   }
 
   setInterval(() => {
-    const players = Object.keys(bot.players);
-    onlinePlayers = players.length;
-    doRandomAction();
-    io.emit('statusUpdate', getStatusData());
-  }, 5000);
-
-  // Iniciando a captura de tela a cada 100ms (10 FPS)
-  screenCaptureInterval = setInterval(() => {
-    screen.capture().then((frame) => {
-      // Envia a imagem capturada para o cliente
-      io.emit('frame', frame);
-    });
-  }, 100);
-});
+    const players = Object.keys(bot.players)
+    onlinePlayers = players.length
+    doRandomAction()
+    io.emit('statusUpdate', getStatusData())
+  }, 5000)
+})
 
 bot.on('end', () => {
-  const msg = 'Bot caiu, tentando reconectar...';
-  console.log(msg);
-  addLog(msg);
-  botStatus = 'desconectado';
-  onlinePlayers = 0;
-  botStartTime = null;
-  clearInterval(screenCaptureInterval); // Parar a captura quando o bot desconectar
-  setTimeout(() => bot.connect(), 5000);
-});
+  const msg = 'Bot caiu, tentando reconectar...'
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'desconectado'
+  onlinePlayers = 0
+  botStartTime = null
+  setTimeout(() => bot.connect(), 5000)
+})
 
-bot.on('error', (err) => {
-  const msg = `Erro: ${err.message}`;
-  console.log(msg);
-  addLog(msg);
-  botStatus = 'erro';
-});
+bot.on('error', err => {
+  const msg = `Erro: ${err.message}`
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'erro'
+})
 
 // Escuta mensagens do chat no Minecraft
 bot.on('chat', (username, message) => {
   if (username !== bot.username) {
-    const log = `${username}: ${message}`;
-    addLog(log);
-    io.emit('chatMessage', log);
+    const log = `${username}: ${message}`
+    addLog(log)
+    io.emit('chatMessage', log)
   }
-});
+})
 
-// Recebe mensagens do site e envia para o Minecraft
-io.on('connection', (socket) => {
-  socket.on('sendMessage', (msg) => {
+// Recebe mensagens do site e envia pro Minecraft
+io.on('connection', socket => {
+  socket.on('sendMessage', msg => {
     if (botStatus === 'online') {
-      bot.chat(msg);
-      messagesSent += 1;
-      addLog(`Você: ${msg}`);
+      bot.chat(msg)
+      messagesSent += 1
+      addLog(`Você: ${msg}`)
     }
-  });
+  })
 
   // Reconectar o bot
   socket.on('reconnect', () => {
     if (botStatus === 'desconectado') {
-      bot.connect();
-      const msg = 'Reconectando o bot...';
-      console.log(msg);
-      addLog(msg);
+      bot.connect()
+      const msg = 'Reconectando o bot...'
+      console.log(msg)
+      addLog(msg)
     }
-  });
+  })
 
   // Desligar o bot
   socket.on('shutdown', () => {
     if (botStatus === 'online') {
-      bot.quit('Bot desligado via painel');
-      const msg = 'Bot desligado.';
-      console.log(msg);
-      addLog(msg);
+      bot.quit('Bot desligado via painel')
+      const msg = 'Bot desligado.'
+      console.log(msg)
+      addLog(msg)
     }
-  });
-
-  // Alternar o movimento aleatório
-  socket.on('toggleRandomMovement', () => {
-    randomMovementEnabled = !randomMovementEnabled;
-    const status = randomMovementEnabled ? 'ativado' : 'desativado';
-    console.log(`Movimento aleatório ${status}`);
-    socket.emit('randomMovementStatus', status);
-  });
-});
+  })
+})
 
 app.get('/', (req, res) => {
-  const logsHtml = eventLogs.map((log) => `<li>${log}</li>`).join('');
+  const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
   res.send(`
     <html>
       <head>
@@ -225,12 +200,6 @@ app.get('/', (req, res) => {
         <button onclick="reconnectBot()">Reconectar Bot</button>
         <button onclick="shutdownBot()">Desligar Bot</button>
 
-        <h2>Controle de Movimento Aleatório</h2>
-        <button id="randomMovementButton">Ativar Movimento Aleatório</button>
-
-        <h2>Fotos em Cadeia</h2>
-        <img id="screen" src="" width="640" height="360" />
-
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
@@ -251,18 +220,13 @@ app.get('/', (req, res) => {
             if (logs.children.length > 10) logs.removeChild(logs.lastChild)
           })
 
-          socket.on('randomMovementStatus', (status) => {
-            document.querySelector('#randomMovementButton').innerText = status === 'ativado' ? 'Desativar Movimento Aleatório' : 'Ativar Movimento Aleatório'
-          })
-
-          socket.on('frame', (frame) => {
-            document.querySelector('#screen').src = 'data:image/png;base64,' + frame
-          })
-
           function sendMsg() {
-            const msg = document.querySelector('#msgInput').value
-            socket.emit('sendMessage', msg)
-            document.querySelector('#msgInput').value = ''
+            const input = document.querySelector('#msgInput')
+            const msg = input.value.trim()
+            if (msg) {
+              socket.emit('sendMessage', msg)
+              input.value = ''
+            }
           }
 
           function reconnectBot() {
@@ -272,16 +236,12 @@ app.get('/', (req, res) => {
           function shutdownBot() {
             socket.emit('shutdown')
           }
-
-          document.querySelector('#randomMovementButton').onclick = () => {
-            socket.emit('toggleRandomMovement')
-          }
         </script>
       </body>
     </html>
-  `);
-});
+  `)
+})
 
 server.listen(port, () => {
-  console.log(`Servidor rodando na porta ${port}`);
-});
+  console.log(`Servidor web rodando na porta ${port}`)
+})
