@@ -21,12 +21,12 @@ function getUptime() {
   const h = Math.floor(diff / 3600)
   const m = Math.floor((diff % 3600) / 60)
   const s = diff % 60
-  return ${h}h ${m}m ${s}s
+  return `${h}h ${m}m ${s}s`
 }
 
 function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
-  eventLogs.unshift([${timestamp}] ${message})
+  eventLogs.unshift(`[${timestamp}] ${message}`)
   if (eventLogs.length > 10) eventLogs.pop()
   io.emit('statusUpdate', getStatusData())
 }
@@ -89,32 +89,29 @@ bot.on('end', () => {
 })
 
 bot.on('error', err => {
-  const msg = Erro: ${err.message}
+  const msg = `Erro: ${err.message}`
   console.log(msg)
   addLog(msg)
   botStatus = 'erro'
 })
 
-// Escuta mensagens do chat no Minecraft
 bot.on('chat', (username, message) => {
   if (username !== bot.username) {
-    const log = ${username}: ${message}
+    const log = `${username}: ${message}`
     addLog(log)
     io.emit('chatMessage', log)
   }
 })
 
-// Recebe mensagens do site e envia pro Minecraft
 io.on('connection', socket => {
   socket.on('sendMessage', msg => {
     if (botStatus === 'online') {
       bot.chat(msg)
       messagesSent += 1
-      addLog(Você: ${msg})
+      addLog(`Você: ${msg}`)
     }
   })
 
-  // Reconectar o bot
   socket.on('reconnect', () => {
     if (botStatus === 'desconectado') {
       bot.connect()
@@ -124,7 +121,6 @@ io.on('connection', socket => {
     }
   })
 
-  // Desligar o bot
   socket.on('shutdown', () => {
     if (botStatus === 'online') {
       bot.quit('Bot desligado via painel')
@@ -136,8 +132,8 @@ io.on('connection', socket => {
 })
 
 app.get('/', (req, res) => {
-  const logsHtml = eventLogs.map(log => <li>${log}</li>).join('')
-  res.send(
+  const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
+  res.send(`
     <html>
       <head>
         <title>Status do Bot</title>
@@ -252,9 +248,9 @@ app.get('/', (req, res) => {
         </script>
       </body>
     </html>
-  )
+  `)
 })
 
 server.listen(port, () => {
-  console.log(Servidor web rodando na porta ${port})
+  console.log(`Servidor web rodando na porta ${port}`)
 })
