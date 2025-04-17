@@ -21,9 +21,9 @@ MongoClient.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017', {
 // Criar o bot Minecraft
 function createBot() {
   bot = mineflayer.createBot({
-    host: 'IP_DO_SERVIDOR', // <-- troque para seu IP de servidor
-    port: 25565,
-    username: 'BotMinecraft',
+    host: 'mapatest97.aternos.me', // <-- troque para seu IP de servidor
+    port: 18180,
+    username: 'Junincraft',
     version: '1.21.4',
   });
 
