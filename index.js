@@ -1,37 +1,39 @@
 const mineflayer = require('mineflayer')
 
-// Crie o bot para entrar no seu servidor Aternos
+// Criação do bot
 const bot = mineflayer.createBot({
-  host: 'mapatest97.aternos.me',  // Coloque o IP do seu servidor Aternos
-  port: 18180,                      // A porta padrão é 25565
-  username: 'BatataBOT',       // Escolha um nome para o seu bot
-  version: 1.21.4,                   // O bot vai usar a versão automática do Minecraft
+  host: 'mapatest97.aternos.me', // Coloque aqui o IP do seu servidor Aternos
+  port: 18180,                     // Porta padrão
+  username: 'bot_espectador',      // Nome que o bot usará no servidor
+  version: '1.21.4'                // Define explicitamente a versão do Minecraft
 })
 
-// Evento quando o bot está conectado
+// Ações quando o bot entrar no servidor
 bot.on('spawn', () => {
   console.log('Bot entrou no servidor!')
+
+  // Faz movimentos simples a cada 10 segundos pra evitar ser kickado
   setInterval(() => {
-    // O bot vai girar e pular para evitar inatividade
-    bot.setControlState('jump', true)
-    bot.setControlState('jump', false)
-    bot.look(Math.random() * 360, Math.random() * 360, true)
-    console.log('Bot pulando e girando!')
-  }, 10000) // O bot faz uma ação a cada 10 segundos
+    const movimentos = ['forward', 'back', 'left', 'right', 'jump', 'sneak']
+    const acao = movimentos[Math.floor(Math.random() * movimentos.length)]
+
+    bot.setControlState(acao, true)
+    setTimeout(() => bot.setControlState(acao, false), 1000)
+
+    // Gira aleatoriamente pra parecer ativo
+    bot.look(Math.random() * 2 * Math.PI, Math.random() * 2 * Math.PI)
+  }, 10000)
 })
 
-// Evento para lidar com desconexão
+// Se desconectar, tenta reconectar
 bot.on('end', () => {
-  console.log('Bot desconectado, tentando reconectar...')
+  console.log('Bot foi desconectado. Tentando reconectar...')
   setTimeout(() => {
-    bot.connect()  // Tentativa de reconexão
-  }, 5000)  // Tenta reconectar após 5 segundos
+    bot.connect()
+  }, 5000)
 })
 
-// Evento para lidar com erros (ex: desconexões inesperadas)
+// Mostra erros no console
 bot.on('error', (err) => {
-  console.log('🚨 Erro no bot:', err)
-  setTimeout(() => {
-    bot.connect()  // Se der erro, tenta reconectar
-  }, 5000)  // Tenta reconectar após 5 segundos
+  console.log('Erro:', err)
 })
