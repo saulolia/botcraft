@@ -1,57 +1,104 @@
-const mineflayer = require('mineflayer')
-const pathfinder = require('mineflayer-pathfinder')
-const { GoalNear } = require('mineflayer-pathfinder').goals
+const express = require('express');
+const mineflayer = require('mineflayer');
+const { pathfinder } = require('mineflayer-pathfinder');
+const MongoClient = require('mongodb').MongoClient;
 
-// Crie o bot para entrar no seu servidor
-const bot = mineflayer.createBot({
-  host: 'mapatest97.aternos.me', // IP do seu servidor
-  port: 18180,                   // Porta do servidor
-  username: 'bot_espectador',    // Nome do bot
-  version: '1.21.4'              // Versão do Minecraft
-})
+const app = express();
+const port = process.env.PORT || 3000;
 
-// Configurações do Pathfinder
-bot.loadPlugin(pathfinder)
+let bot;
+let db;
 
-const areaLimit = 50 // Limite de 50 blocos (quadrado de 100x100)
+// Conexão com MongoDB (altere a URL para seu MongoDB Atlas ou local)
+MongoClient.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(client => {
+  db = client.db('minecraftBot');
+  console.log('✅ Conectado ao MongoDB');
+}).catch(err => console.error('Erro ao conectar ao MongoDB:', err));
 
-bot.on('spawn', () => {
-  console.log('Bot entrou no servidor!')
+// Criar o bot Minecraft
+function createBot() {
+  bot = mineflayer.createBot({
+    host: 'IP_DO_SERVIDOR', // <-- troque para seu IP de servidor
+    port: 25565,
+    username: 'BotMinecraft',
+    version: '1.21.4',
+  });
 
-  setInterval(() => {
-    // Movimento aleatório dentro de um quadrado 100x100
-    const x = Math.floor(Math.random() * areaLimit * 2) - areaLimit
-    const z = Math.floor(Math.random() * areaLimit * 2) - areaLimit
-    const y = bot.entity.position.y
+  bot.loadPlugin(pathfinder);
 
-    bot.pathfinder.setGoal(new GoalNear(x, y, z, 1)) // Objetivo de movimento
-  }, 5000) // Atualiza a cada 5 segundos
+  bot.on('spawn', () => {
+    console.log('🤖 Bot conectado!');
+    logStatus('online');
+  });
 
-  // Movimento e ação para parecer mais com um jogador real
-  setInterval(() => {
-    bot.setControlState('jump', true) // Pula
-    setTimeout(() => bot.setControlState('jump', false), 200) // Para de pular depois de 200ms
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return;
 
-    bot.look(Math.random() * 360, Math.random() * 360, true) // Olha em direção aleatória
-  }, 10000) // A cada 10 segundos
+    if (message === 'olá') {
+      bot.chat(`Olá, ${username}!`);
+    }
 
-  setInterval(() => {
-    bot.setControlState('forward', true) // Anda para frente
-    setTimeout(() => bot.setControlState('forward', false), 2000) // Anda por 2 segundos
-  }, 15000) // A cada 15 segundos
+    logCommand(username, message);
+  });
 
-  // Movimentação aleatória com comportamento mais natural
-  setInterval(() => {
-    bot.setControlState('sprint', true) // Começa a correr
-    setTimeout(() => bot.setControlState('sprint', false), 5000) // Para de correr depois de 5 segundos
-  }, 20000) // A cada 20 segundos
-})
+  bot.on('end', () => {
+    console.log('⚠️ Bot desconectado.');
+    logStatus('offline');
+  });
 
-bot.on('end', () => {
-  console.log('Bot caiu, tentando reconectar...')
-  setTimeout(() => bot.connect(), 5000)
-})
+  bot.on('error', (err) => {
+    console.error('Erro no bot:', err);
+    logStatus('error');
+  });
+}
 
-bot.on('error', err => {
-  console.log('Erro:', err)
-})
+// Log de status
+function logStatus(status) {
+  if (db) {
+    db.collection('bot_status').insertOne({
+      status,
+      timestamp: new Date(),
+    });
+  }
+}
+
+// Log de comandos
+function logCommand(username, message) {
+  if (db) {
+    db.collection('commands').insertOne({
+      username,
+      message,
+      timestamp: new Date(),
+    });
+  }
+}
+
+// Express config
+app.set('view engine', 'ejs');
+app.use(express.static('public'));
+
+app.get('/', async (req, res) => {
+  try {
+    const status = await db.collection('bot_status').find({}).sort({ timestamp: -1 }).limit(1).toArray();
+    const commands = await db.collection('commands').find({}).sort({ timestamp: -1 }).limit(10).toArray();
+    const playersOnline = bot?.players ? Object.keys(bot.players).length : 0;
+    const uptime = status[0] ? (new Date() - new Date(status[0].timestamp)) / 1000 : 0;
+
+    res.render('index', {
+      status: status[0] || { status: 'offline', timestamp: new Date() },
+      commands,
+      playersOnline,
+      botUptime: Math.floor(uptime),
+    });
+  } catch (err) {
+    res.status(500).send('Erro ao buscar dados.');
+  }
+});
+
+app.listen(port, () => {
+  console.log(`🌐 Servidor web em http://localhost:${port}`);
+  createBot();
+});
