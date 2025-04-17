@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000
 let botStatus = 'desconectado'
 let onlinePlayers = 0
 let botStartTime = null
-let eventLogs = []
+let eventLogs = []  // Agora as mensagens serão adicionadas no final da lista
 
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
@@ -25,8 +25,9 @@ function getUptime() {
 
 function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
-  eventLogs.unshift(`[${timestamp}] ${message}`)
-  if (eventLogs.length > 10) eventLogs.pop()
+  // Adicionando a nova mensagem ao final da lista de logs
+  eventLogs.push(`[${timestamp}] ${message}`)
+  if (eventLogs.length > 10) eventLogs.shift() // Limita a 10 logs mais recentes
   io.emit('statusUpdate', getStatusData())
 }
 
@@ -148,22 +149,6 @@ app.get('/', (req, res) => {
       </body>
     </html>
   `)
-})
-
-io.on('connection', socket => {
-  socket.on('sendMessage', msg => {
-    if (bot && bot.player && botStatus === 'online') {
-      try {
-        bot.chat(msg)
-        addLog(`Você: ${msg}`)
-      } catch (err) {
-        console.log('Erro ao enviar mensagem:', err)
-        addLog('Erro ao enviar mensagem pro servidor')
-      }
-    } else {
-      addLog('❌ Bot ainda não está pronto pra enviar mensagens.')
-    }
-  })
 })
 
 server.listen(port, () => {
