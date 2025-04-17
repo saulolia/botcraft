@@ -73,13 +73,6 @@ bot.on('spawn', () => {
     const players = Object.keys(bot.players)
     onlinePlayers = players.length
     doRandomAction()
-
-    // Captura a tela a cada 5 segundos
-    bot.getScreenshot().then((image) => {
-      const base64Image = image.toString('base64')
-      io.emit('screenUpdate', base64Image)
-    })
-
     io.emit('statusUpdate', getStatusData())
   }, 5000)
 })
@@ -131,12 +124,6 @@ app.get('/', (req, res) => {
             font-family: monospace;
             margin-bottom: 5px;
           }
-          #screen {
-            width: 300px;
-            height: 200px;
-            border: 1px solid #ccc;
-            margin-top: 20px;
-          }
         </style>
       </head>
       <body>
@@ -148,29 +135,35 @@ app.get('/', (req, res) => {
         <h2>Logs Recentes</h2>
         <ul id="logs">${logsHtml}</ul>
 
-        <h2>Imagem do Bot</h2>
-        <img id="screen" src="" alt="Tela do Bot">
-
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
-
-          // Atualiza o status e os logs
           socket.on('statusUpdate', (data) => {
             document.querySelector('#status').innerText = data.status
             document.querySelector('#players').innerText = data.players
             document.querySelector('#uptime').innerText = data.uptime
             document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
           })
-
-          // Atualiza a imagem da tela do bot
-          socket.on('screenUpdate', (imageBase64) => {
-            document.querySelector('#screen').src = 'data:image/png;base64,' + imageBase64
-          })
         </script>
       </body>
     </html>
   `)
+})
+
+io.on('connection', socket => {
+  socket.on('sendMessage', msg => {
+    if (bot && bot.player && botStatus === 'online') {
+      try {
+        bot.chat(msg)
+        addLog(`Você: ${msg}`)
+      } catch (err) {
+        console.log('Erro ao enviar mensagem:', err)
+        addLog('Erro ao enviar mensagem pro servidor')
+      }
+    } else {
+      addLog('❌ Bot ainda não está pronto pra enviar mensagens.')
+    }
+  })
 })
 
 server.listen(port, () => {
