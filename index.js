@@ -1,104 +1,119 @@
-const express = require('express');
-const mineflayer = require('mineflayer');
-const { pathfinder } = require('mineflayer-pathfinder');
-const MongoClient = require('mongodb').MongoClient;
+const mineflayer = require('mineflayer')
+const express = require('express')
 
-const app = express();
-const port = process.env.PORT || 3000;
+const app = express()
+const port = process.env.PORT || 3000
 
-let bot;
-let db;
+let botStatus = 'desconectado'
+let onlinePlayers = 0
+let botStartTime = null
+let eventLogs = [] // Armazena os últimos eventos (logs)
 
-// Conexão com MongoDB (altere a URL para seu MongoDB Atlas ou local)
-MongoClient.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-}).then(client => {
-  db = client.db('minecraftBot');
-  console.log('✅ Conectado ao MongoDB');
-}).catch(err => console.error('Erro ao conectar ao MongoDB:', err));
-
-// Criar o bot Minecraft
-function createBot() {
-  bot = mineflayer.createBot({
-    host: 'mapatest97.aternos.me', // <-- troque para seu IP de servidor
-    port: 18180,
-    username: 'Junincraft',
-    version: '1.21.4',
-  });
-
-  bot.loadPlugin(pathfinder);
-
-  bot.on('spawn', () => {
-    console.log('🤖 Bot conectado!');
-    logStatus('online');
-  });
-
-  bot.on('chat', (username, message) => {
-    if (username === bot.username) return;
-
-    if (message === 'olá') {
-      bot.chat(`Olá, ${username}!`);
-    }
-
-    logCommand(username, message);
-  });
-
-  bot.on('end', () => {
-    console.log('⚠️ Bot desconectado.');
-    logStatus('offline');
-  });
-
-  bot.on('error', (err) => {
-    console.error('Erro no bot:', err);
-    logStatus('error');
-  });
+// Função para formatar tempo online
+function getUptime() {
+  if (!botStartTime) return 'Desconectado'
+  const diff = Math.floor((Date.now() - botStartTime) / 1000)
+  const h = Math.floor(diff / 3600)
+  const m = Math.floor((diff % 3600) / 60)
+  const s = diff % 60
+  return `${h}h ${m}m ${s}s`
 }
 
-// Log de status
-function logStatus(status) {
-  if (db) {
-    db.collection('bot_status').insertOne({
-      status,
-      timestamp: new Date(),
-    });
-  }
+// Função para adicionar logs no histórico
+function addLog(message) {
+  const timestamp = new Date().toLocaleTimeString()
+  eventLogs.unshift(`[${timestamp}] ${message}`)
+  if (eventLogs.length > 10) eventLogs.pop() // Limita a 10 linhas
 }
 
-// Log de comandos
-function logCommand(username, message) {
-  if (db) {
-    db.collection('commands').insertOne({
-      username,
-      message,
-      timestamp: new Date(),
-    });
-  }
-}
+// Criando o bot
+const bot = mineflayer.createBot({
+  host: 'ip-do-servidor', // exemplo: 'seuservidor.aternos.me'
+  port: 25565,
+  username: 'bot_espectador',
+  version: false
+})
 
-// Express config
-app.set('view engine', 'ejs');
-app.use(express.static('public'));
+bot.on('spawn', () => {
+  const msg = 'Bot entrou no servidor!'
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'online'
+  botStartTime = Date.now()
 
-app.get('/', async (req, res) => {
-  try {
-    const status = await db.collection('bot_status').find({}).sort({ timestamp: -1 }).limit(1).toArray();
-    const commands = await db.collection('commands').find({}).sort({ timestamp: -1 }).limit(10).toArray();
-    const playersOnline = bot?.players ? Object.keys(bot.players).length : 0;
-    const uptime = status[0] ? (new Date() - new Date(status[0].timestamp)) / 1000 : 0;
+  setInterval(() => {
+    bot.setControlState('jump', true)
+    setTimeout(() => bot.setControlState('jump', false), 200)
+    bot.look(Math.random() * 360, Math.random() * 360, true)
 
-    res.render('index', {
-      status: status[0] || { status: 'offline', timestamp: new Date() },
-      commands,
-      playersOnline,
-      botUptime: Math.floor(uptime),
-    });
-  } catch (err) {
-    res.status(500).send('Erro ao buscar dados.');
-  }
-});
+    const players = Object.keys(bot.players)
+    onlinePlayers = players.length
+  }, 10000)
+})
+
+bot.on('end', () => {
+  const msg = 'Bot caiu, tentando reconectar...'
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'desconectado'
+  onlinePlayers = 0
+  botStartTime = null
+  setTimeout(() => bot.connect(), 5000)
+})
+
+bot.on('error', err => {
+  const msg = `Erro: ${err.message}`
+  console.log(msg)
+  addLog(msg)
+  botStatus = 'erro'
+})
+
+// Página web com status e log
+app.get('/', (req, res) => {
+  const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
+  res.send(`
+    <html>
+      <head>
+        <title>Status do Bot</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            background-color: #111;
+            color: #eee;
+            text-align: center;
+            padding-top: 40px;
+          }
+          h1 { font-size: 2em; margin-bottom: 10px; }
+          p { font-size: 1.2em; margin: 5px 0; }
+          ul {
+            text-align: left;
+            width: 80%;
+            max-width: 500px;
+            margin: 20px auto;
+            background: #222;
+            padding: 15px;
+            border-radius: 10px;
+            list-style: none;
+          }
+          li {
+            font-family: monospace;
+            margin-bottom: 5px;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Status do Bot Minecraft</h1>
+        <p>Status: <strong>${botStatus}</strong></p>
+        <p>Jogadores online: <strong>${onlinePlayers}</strong></p>
+        <p>Tempo online: <strong>${getUptime()}</strong></p>
+
+        <h2>Logs Recentes</h2>
+        <ul>${logsHtml}</ul>
+      </body>
+    </html>
+  `)
+})
 
 app.listen(port, () => {
-  console.log(`🌐 Servidor web em http://localhost:${port}`);
-  createBot();
-});
+  console.log(`Servidor web rodando na porta ${port}`)
+})
