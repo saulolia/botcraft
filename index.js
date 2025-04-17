@@ -12,7 +12,7 @@ const port = process.env.PORT || 3000
 let botStatus = 'desconectado'
 let onlinePlayers = 0
 let botStartTime = null
-let eventLogs = []  // Agora as mensagens serão adicionadas no final da lista
+let eventLogs = []
 
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
@@ -25,9 +25,8 @@ function getUptime() {
 
 function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
-  // Adicionando a nova mensagem ao final da lista de logs
-  eventLogs.push(`[${timestamp}] ${message}`)
-  if (eventLogs.length > 10) eventLogs.shift() // Limita a 10 logs mais recentes
+  eventLogs.unshift(`[${timestamp}] ${message}`)
+  if (eventLogs.length > 10) eventLogs.pop()
   io.emit('statusUpdate', getStatusData())
 }
 
@@ -74,6 +73,13 @@ bot.on('spawn', () => {
     const players = Object.keys(bot.players)
     onlinePlayers = players.length
     doRandomAction()
+
+    // Captura a tela a cada 5 segundos
+    bot.getScreenshot().then((image) => {
+      const base64Image = image.toString('base64')
+      io.emit('screenUpdate', base64Image)
+    })
+
     io.emit('statusUpdate', getStatusData())
   }, 5000)
 })
@@ -125,6 +131,12 @@ app.get('/', (req, res) => {
             font-family: monospace;
             margin-bottom: 5px;
           }
+          #screen {
+            width: 300px;
+            height: 200px;
+            border: 1px solid #ccc;
+            margin-top: 20px;
+          }
         </style>
       </head>
       <body>
@@ -136,14 +148,24 @@ app.get('/', (req, res) => {
         <h2>Logs Recentes</h2>
         <ul id="logs">${logsHtml}</ul>
 
+        <h2>Imagem do Bot</h2>
+        <img id="screen" src="" alt="Tela do Bot">
+
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
+
+          // Atualiza o status e os logs
           socket.on('statusUpdate', (data) => {
             document.querySelector('#status').innerText = data.status
             document.querySelector('#players').innerText = data.players
             document.querySelector('#uptime').innerText = data.uptime
             document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
+          })
+
+          // Atualiza a imagem da tela do bot
+          socket.on('screenUpdate', (imageBase64) => {
+            document.querySelector('#screen').src = 'data:image/png;base64,' + imageBase64
           })
         </script>
       </body>
