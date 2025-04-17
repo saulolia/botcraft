@@ -15,6 +15,72 @@ let botStartTime = null
 let eventLogs = []
 let messagesSent = 0
 
+// Variáveis para as configurações do bot
+let botConfig = {
+  host: 'mapatest97.aternos.me',
+  port: 18180,
+  username: 'JuninGameplay',
+  version: '1.21.4'
+}
+
+// Função para criar/atualizar o bot
+function createBot(config) {
+  if (bot) bot.quit('Bot reiniciado devido a mudança de configurações');
+  bot = mineflayer.createBot(config);
+  
+  bot.on('spawn', () => {
+    const msg = 'Bot entrou no servidor!'
+    console.log(msg)
+    addLog(msg)
+    botStatus = 'online'
+    botStartTime = Date.now()
+
+    // Ações aleatórias do bot
+    const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look']
+
+    function doRandomAction() {
+      const action = actions[Math.floor(Math.random() * actions.length)]
+
+      if (action === 'look') {
+        const yaw = Math.random() * 2 * Math.PI
+        const pitch = (Math.random() - 0.5) * Math.PI
+        bot.look(yaw, pitch, true)
+      } else {
+        bot.setControlState(action, true)
+        setTimeout(() => bot.setControlState(action, false), 500)
+      }
+    }
+
+    setInterval(() => {
+      const players = Object.keys(bot.players)
+      onlinePlayers = players.length
+      doRandomAction()
+      io.emit('statusUpdate', getStatusData())
+    }, 5000)
+  });
+
+  bot.on('end', () => {
+    const msg = 'Bot caiu, tentando reconectar...'
+    console.log(msg)
+    addLog(msg)
+    botStatus = 'desconectado'
+    onlinePlayers = 0
+    botStartTime = null
+    setTimeout(() => bot.connect(), 5000)
+  });
+
+  bot.on('error', err => {
+    const msg = `Erro: ${err.message}`
+    console.log(msg)
+    addLog(msg)
+    botStatus = 'erro'
+  });
+}
+
+// Inicializa o bot com a configuração padrão
+createBot(botConfig);
+
+// Função para calcular o tempo de atividade
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
   const diff = Math.floor((Date.now() - botStartTime) / 1000)
@@ -24,6 +90,7 @@ function getUptime() {
   return `${h}h ${m}m ${s}s`
 }
 
+// Função para adicionar logs
 function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
   eventLogs.unshift(`[${timestamp}] ${message}`)
@@ -31,6 +98,7 @@ function addLog(message) {
   io.emit('statusUpdate', getStatusData())
 }
 
+// Função para obter os dados do status
 function getStatusData() {
   return {
     status: botStatus,
@@ -41,61 +109,7 @@ function getStatusData() {
   }
 }
 
-const bot = mineflayer.createBot({
-  host: 'mapatest97.aternos.me',
-  port: 18180,
-  username: 'JuninGameplay',
-  version: '1.21.4'
-})
-
-bot.on('spawn', () => {
-  const msg = 'Bot entrou no servidor!'
-  console.log(msg)
-  addLog(msg)
-  botStatus = 'online'
-  botStartTime = Date.now()
-
-  const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look']
-
-  function doRandomAction() {
-    const action = actions[Math.floor(Math.random() * actions.length)]
-
-    if (action === 'look') {
-      const yaw = Math.random() * 2 * Math.PI
-      const pitch = (Math.random() - 0.5) * Math.PI
-      bot.look(yaw, pitch, true)
-    } else {
-      bot.setControlState(action, true)
-      setTimeout(() => bot.setControlState(action, false), 500)
-    }
-  }
-
-  setInterval(() => {
-    const players = Object.keys(bot.players)
-    onlinePlayers = players.length
-    doRandomAction()
-    io.emit('statusUpdate', getStatusData())
-  }, 5000)
-})
-
-bot.on('end', () => {
-  const msg = 'Bot caiu, tentando reconectar...'
-  console.log(msg)
-  addLog(msg)
-  botStatus = 'desconectado'
-  onlinePlayers = 0
-  botStartTime = null
-  setTimeout(() => bot.connect(), 5000)
-})
-
-bot.on('error', err => {
-  const msg = `Erro: ${err.message}`
-  console.log(msg)
-  addLog(msg)
-  botStatus = 'erro'
-})
-
-// Escuta mensagens do chat no Minecraft
+// Escuta eventos de chat no Minecraft
 bot.on('chat', (username, message) => {
   if (username !== bot.username) {
     const log = `${username}: ${message}`
@@ -104,7 +118,7 @@ bot.on('chat', (username, message) => {
   }
 })
 
-// Recebe mensagens do site e envia pro Minecraft
+// Recebe mensagens do site e envia para o Minecraft
 io.on('connection', socket => {
   socket.on('sendMessage', msg => {
     if (botStatus === 'online') {
@@ -133,8 +147,16 @@ io.on('connection', socket => {
       addLog(msg)
     }
   })
+
+  // Atualizar configurações do bot
+  socket.on('updateBotConfig', (newConfig) => {
+    botConfig = { ...botConfig, ...newConfig }
+    createBot(botConfig);  // Reinicia o bot com as novas configurações
+    addLog(`Configuração do bot atualizada: IP: ${newConfig.host}, Versão: ${newConfig.version}, Nickname: ${newConfig.username}`);
+  })
 })
 
+// Inicia o servidor Express
 app.get('/', (req, res) => {
   const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
   res.send(`
@@ -212,6 +234,12 @@ app.get('/', (req, res) => {
         <button onclick="reconnectBot()">Reconectar Bot</button>
         <button onclick="shutdownBot()">Desligar Bot</button>
 
+        <h2>Alterar Configuração do Bot</h2>
+        <input id="newIP" placeholder="Novo IP" />
+        <input id="newVersion" placeholder="Nova Versão" />
+        <input id="newUsername" placeholder="Novo Nickname" />
+        <button onclick="updateBotConfig()">Atualizar Configurações</button>
+
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
@@ -248,6 +276,22 @@ app.get('/', (req, res) => {
 
           function shutdownBot() {
             socket.emit('shutdown')
+          }
+
+          function updateBotConfig() {
+            const newIP = document.querySelector('#newIP').value
+            const newVersion = document.querySelector('#newVersion').value
+            const newUsername = document.querySelector('#newUsername').value
+            
+            // Envia os dados de configuração para o servidor
+            socket.emit('updateBotConfig', {
+              host: newIP || 'mapatest97.aternos.me', 
+              version: newVersion || '1.21.4', 
+              username: newUsername || 'JuninGameplay'
+            })
+
+            // Atualiza os campos após envio
+            alert('Configurações do bot atualizadas!');
           }
         </script>
       </body>
