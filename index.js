@@ -28,10 +28,10 @@ function addLog(message) {
 
 // Criando o bot
 const bot = mineflayer.createBot({
-  host: 'ip-do-servidor', // exemplo: 'seuservidor.aternos.me'
-  port: 25565,
-  username: 'bot_espectador',
-  version: false
+  host: 'mapatest97.aternos.me', // exemplo: 'seuservidor.aternos.me'
+  port: 18180,
+  username: 'JuninGameplay',
+  version: 1.21.4
 })
 
 bot.on('spawn', () => {
