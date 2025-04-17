@@ -1,0 +1,12 @@
+{
+  "name": "mc-bot",
+  "version": "1.0.0",
+  "description": "Bot do Minecraft usando mineflayer para manter Aternos online",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "mineflayer": "^4.0.0"  // Versão estável do mineflayer
+  }
+}
