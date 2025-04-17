@@ -1,15 +1,19 @@
 const mineflayer = require('mineflayer')
 const express = require('express')
+const http = require('http')
+const { Server } = require('socket.io')
 
 const app = express()
+const server = http.createServer(app)
+const io = new Server(server)
+
 const port = process.env.PORT || 3000
 
 let botStatus = 'desconectado'
 let onlinePlayers = 0
 let botStartTime = null
-let eventLogs = [] // Armazena os últimos eventos (logs)
+let eventLogs = []
 
-// Função para formatar tempo online
 function getUptime() {
   if (!botStartTime) return 'Desconectado'
   const diff = Math.floor((Date.now() - botStartTime) / 1000)
@@ -19,16 +23,25 @@ function getUptime() {
   return `${h}h ${m}m ${s}s`
 }
 
-// Função para adicionar logs no histórico
 function addLog(message) {
   const timestamp = new Date().toLocaleTimeString()
   eventLogs.unshift(`[${timestamp}] ${message}`)
-  if (eventLogs.length > 10) eventLogs.pop() // Limita a 10 linhas
+  if (eventLogs.length > 10) eventLogs.pop()
+  io.emit('statusUpdate', getStatusData())
+}
+
+function getStatusData() {
+  return {
+    status: botStatus,
+    players: onlinePlayers,
+    uptime: getUptime(),
+    logs: eventLogs
+  }
 }
 
 // Criando o bot
 const bot = mineflayer.createBot({
-  host: 'mapatest97.aternos.me', // exemplo: 'seuservidor.aternos.me'
+  host: 'mapatest97.aternos.me',
   port: 18180,
   username: 'JuninGameplay',
   version: '1.21.4'
@@ -41,14 +54,27 @@ bot.on('spawn', () => {
   botStatus = 'online'
   botStartTime = Date.now()
 
-  setInterval(() => {
-    bot.setControlState('jump', true)
-    setTimeout(() => bot.setControlState('jump', false), 200)
-    bot.look(Math.random() * 360, Math.random() * 360, true)
+  const actions = ['forward', 'back', 'left', 'right', 'jump', 'sneak', 'look']
 
+  function doRandomAction() {
+    const action = actions[Math.floor(Math.random() * actions.length)]
+
+    if (action === 'look') {
+      const yaw = Math.random() * 2 * Math.PI
+      const pitch = (Math.random() - 0.5) * Math.PI
+      bot.look(yaw, pitch, true)
+    } else {
+      bot.setControlState(action, true)
+      setTimeout(() => bot.setControlState(action, false), 500)
+    }
+  }
+
+  setInterval(() => {
     const players = Object.keys(bot.players)
     onlinePlayers = players.length
-  }, 10000)
+    doRandomAction()
+    io.emit('statusUpdate', getStatusData())
+  }, 5000)
 })
 
 bot.on('end', () => {
@@ -68,7 +94,6 @@ bot.on('error', err => {
   botStatus = 'erro'
 })
 
-// Página web com status e log
 app.get('/', (req, res) => {
   const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
   res.send(`
@@ -103,17 +128,28 @@ app.get('/', (req, res) => {
       </head>
       <body>
         <h1>Status do Bot Minecraft</h1>
-        <p>Status: <strong>${botStatus}</strong></p>
-        <p>Jogadores online: <strong>${onlinePlayers}</strong></p>
-        <p>Tempo online: <strong>${getUptime()}</strong></p>
+        <p>Status: <strong id="status">${botStatus}</strong></p>
+        <p>Jogadores online: <strong id="players">${onlinePlayers}</strong></p>
+        <p>Tempo online: <strong id="uptime">${getUptime()}</strong></p>
 
         <h2>Logs Recentes</h2>
-        <ul>${logsHtml}</ul>
+        <ul id="logs">${logsHtml}</ul>
+
+        <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+        <script>
+          const socket = io()
+          socket.on('statusUpdate', (data) => {
+            document.querySelector('#status').innerText = data.status
+            document.querySelector('#players').innerText = data.players
+            document.querySelector('#uptime').innerText = data.uptime
+            document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
+          })
+        </script>
       </body>
     </html>
   `)
 })
 
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Servidor web rodando na porta ${port}`)
 })
