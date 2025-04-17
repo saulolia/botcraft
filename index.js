@@ -39,6 +39,7 @@ function getStatusData() {
   }
 }
 
+// Criando o bot
 const bot = mineflayer.createBot({
   host: 'mapatest97.aternos.me',
   port: 18180,
@@ -93,25 +94,6 @@ bot.on('error', err => {
   botStatus = 'erro'
 })
 
-// Escuta mensagens do chat no Minecraft
-bot.on('chat', (username, message) => {
-  if (username !== bot.username) {
-    const log = `${username}: ${message}`
-    addLog(log)
-    io.emit('chatMessage', log)
-  }
-})
-
-// Recebe mensagens do site e envia pro Minecraft
-io.on('connection', socket => {
-  socket.on('sendMessage', msg => {
-    if (botStatus === 'online') {
-      bot.chat(msg)
-      addLog(`Você: ${msg}`)
-    }
-  })
-})
-
 app.get('/', (req, res) => {
   const logsHtml = eventLogs.map(log => `<li>${log}</li>`).join('')
   res.send(`
@@ -127,21 +109,7 @@ app.get('/', (req, res) => {
             padding-top: 40px;
           }
           h1 { font-size: 2em; margin-bottom: 10px; }
-          p, input, button { font-size: 1.1em; margin: 5px 0; }
-          input {
-            padding: 5px;
-            width: 250px;
-            border-radius: 5px;
-            border: none;
-          }
-          button {
-            padding: 6px 12px;
-            border-radius: 5px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-          }
+          p { font-size: 1.2em; margin: 5px 0; }
           ul {
             text-align: left;
             width: 80%;
@@ -167,41 +135,35 @@ app.get('/', (req, res) => {
         <h2>Logs Recentes</h2>
         <ul id="logs">${logsHtml}</ul>
 
-        <h2>Enviar mensagem pro chat do Minecraft</h2>
-        <input id="msgInput" placeholder="Digite sua mensagem..." />
-        <button onclick="sendMsg()">Enviar</button>
-
         <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
         <script>
           const socket = io()
-
           socket.on('statusUpdate', (data) => {
             document.querySelector('#status').innerText = data.status
             document.querySelector('#players').innerText = data.players
             document.querySelector('#uptime').innerText = data.uptime
             document.querySelector('#logs').innerHTML = data.logs.map(log => '<li>' + log + '</li>').join('')
           })
-
-          socket.on('chatMessage', (msg) => {
-            const logs = document.querySelector('#logs')
-            const li = document.createElement('li')
-            li.innerText = msg
-            logs.prepend(li)
-            if (logs.children.length > 10) logs.removeChild(logs.lastChild)
-          })
-
-          function sendMsg() {
-            const input = document.querySelector('#msgInput')
-            const msg = input.value.trim()
-            if (msg) {
-              socket.emit('sendMessage', msg)
-              input.value = ''
-            }
-          }
         </script>
       </body>
     </html>
   `)
+})
+
+io.on('connection', socket => {
+  socket.on('sendMessage', msg => {
+    if (bot && bot.player && botStatus === 'online') {
+      try {
+        bot.chat(msg)
+        addLog(`Você: ${msg}`)
+      } catch (err) {
+        console.log('Erro ao enviar mensagem:', err)
+        addLog('Erro ao enviar mensagem pro servidor')
+      }
+    } else {
+      addLog('❌ Bot ainda não está pronto pra enviar mensagens.')
+    }
+  })
 })
 
 server.listen(port, () => {
